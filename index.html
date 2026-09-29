@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12181A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MBR2 Assistant">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>MBR2 Work Assistant</title>
+
+<!-- Fonts: Latin + Khmer support for bilingual documents -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Document-parsing libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+
+<style>
+  :root{
+    --bg:#12181A;
+    --panel:#182123;
+    --panel-2:#1E2A2D;
+    --line:#2B3A3D;
+    --teal:#2FA79A;
+    --teal-dim:#1D5C55;
+    --gold:#D6A339;
+    --text:#EDEFEE;
+    --text-dim:#9FB0AE;
+    --text-faint:#6C7E7C;
+    --danger:#D9705B;
+    --radius:10px;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --sans:'Inter', 'Noto Sans Khmer', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 20px;
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+    flex-shrink:0;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:30px; height:30px; border-radius:7px;
+    background:linear-gradient(135deg, var(--teal), var(--teal-dim));
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-weight:700; font-size:13px; color:#08110F;
+  }
+  .brand-text h1{font-size:15px; margin:0; font-weight:600; letter-spacing:.2px;}
+  .brand-text p{font-size:11.5px; margin:1px 0 0; color:var(--text-faint);}
+  .header-actions{display:flex; gap:8px;}
+  button.icon-btn{
+    background:transparent; border:1px solid var(--line); color:var(--text-dim);
+    border-radius:8px; width:34px; height:34px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    transition:.15s;
+  }
+  button.icon-btn:hover{border-color:var(--teal); color:var(--teal);}
+
+  /* ---------- Layout ---------- */
+  .layout{flex:1; display:flex; min-height:0;}
+  aside{
+    width:290px; flex-shrink:0; background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  aside .section-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--text-faint); padding:16px 16px 8px; font-family:var(--mono);
+  }
+  .dropzone{
+    margin:0 14px 10px; padding:18px 10px;
+    border:1.5px dashed var(--line); border-radius:var(--radius);
+    text-align:center; color:var(--text-dim); font-size:12.5px;
+    cursor:pointer; transition:.15s;
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--teal); color:var(--teal); background:rgba(47,167,154,0.06);}
+  .dropzone span{display:block; font-size:20px; margin-bottom:4px;}
+  #fileInput{display:none;}
+
+  .doc-list{flex:1; overflow-y:auto; padding:0 10px 10px;}
+  .doc-item{
+    display:flex; align-items:flex-start; gap:8px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+    padding:9px 10px; margin-bottom:6px; font-size:12.5px;
+  }
+  .doc-item .doc-ico{
+    font-family:var(--mono); font-size:9.5px; color:var(--bg); background:var(--gold);
+    border-radius:4px; padding:2px 5px; flex-shrink:0; margin-top:2px; font-weight:700;
+  }
+  .doc-item .doc-meta{flex:1; min-width:0;}
+  .doc-item .doc-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);}
+  .doc-item .doc-sub{color:var(--text-faint); font-size:11px; margin-top:1px;}
+  .doc-item .doc-remove{
+    background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:14px;
+    padding:0 2px; flex-shrink:0;
+  }
+  .doc-item .doc-remove:hover{color:var(--danger);}
+  .doc-item.pending .doc-sub{color:var(--gold);}
+  .doc-item.failed{border-color:var(--danger);}
+  .doc-item.failed .doc-sub{color:var(--danger);}
+
+  .doc-empty{color:var(--text-faint); font-size:12px; padding:6px 8px; line-height:1.5;}
+
+  .stats-bar{
+    padding:10px 16px; border-top:1px solid var(--line);
+    font-size:11px; color:var(--text-faint); font-family:var(--mono);
+    display:flex; justify-content:space-between;
+  }
+  .stats-bar b{color:var(--teal);}
+
+  /* ---------- Chat ---------- */
+  main{flex:1; display:flex; flex-direction:column; min-height:0;}
+  .chat-scroll{flex:1; overflow-y:auto; padding:22px 0;}
+  .chat-inner{max-width:760px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column; gap:18px;}
+
+  .empty-state{
+    max-width:520px; margin:60px auto; text-align:center; color:var(--text-dim);
+  }
+  .empty-state h2{color:var(--text); font-size:19px; margin-bottom:8px; font-weight:600;}
+  .empty-state p{font-size:13.5px; line-height:1.6;}
+  .empty-state .examples{
+    margin-top:18px; display:flex; flex-direction:column; gap:6px; align-items:center;
+  }
+  .example-chip{
+    border:1px solid var(--line); border-radius:20px; padding:7px 14px;
+    font-size:12.5px; color:var(--text-dim); cursor:pointer; transition:.15s;
+  }
+  .example-chip:hover{border-color:var(--teal); color:var(--teal);}
+
+  .msg{display:flex; gap:10px; max-width:100%;}
+  .msg.user{flex-direction:row-reverse;}
+  .msg .avatar{
+    width:26px; height:26px; border-radius:7px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-family:var(--mono); font-weight:700; margin-top:2px;
+  }
+  .msg.user .avatar{background:var(--teal-dim); color:#CFEFEA;}
+  .msg.assistant .avatar{background:var(--gold); color:#241B04;}
+  .bubble{
+    padding:11px 14px; border-radius:12px; font-size:14px; line-height:1.55;
+    max-width:78%;
+  }
+  .msg.user .bubble{background:var(--teal-dim); color:#EAFBF8; border-top-right-radius:3px;}
+  .msg.assistant .bubble{background:var(--panel-2); border:1px solid var(--line); border-top-left-radius:3px;}
+  .msg.error .bubble{background:rgba(217,112,91,0.12); border:1px solid var(--danger); color:#F3C9C0;}
+  .bubble p{margin:0 0 8px;}
+  .bubble p:last-child{margin-bottom:0;}
+  .bubble ul,.bubble ol{margin:6px 0; padding-left:20px;}
+  .bubble li{margin-bottom:3px;}
+  .bubble code{background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; font-family:var(--mono); font-size:12.5px;}
+  .bubble strong{color:#fff;}
+  .bubble table{border-collapse:collapse; margin:8px 0; font-size:12.5px; width:100%;}
+  .bubble th,.bubble td{border:1px solid var(--line); padding:5px 8px; text-align:left;}
+  .bubble th{background:rgba(255,255,255,0.04);}
+
+  .typing{display:flex; gap:4px; padding:4px 2px;}
+  .typing span{width:6px; height:6px; border-radius:50%; background:var(--text-faint); animation:blink 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:.2s;}
+  .typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;} 40%{opacity:1;}}
+
+  .composer{
+    border-top:1px solid var(--line); padding:14px 24px 18px; background:var(--bg);
+  }
+  .composer-inner{max-width:760px; margin:0 auto;}
+  .input-row{
+    display:flex; gap:10px; align-items:flex-end;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:8px 8px 8px 16px;
+  }
+  .input-row:focus-within{border-color:var(--teal);}
+  textarea#userInput{
+    flex:1; background:transparent; border:none; outline:none; resize:none;
+    color:var(--text); font-family:var(--sans); font-size:14px; line-height:1.5;
+    max-height:160px; padding:6px 0;
+  }
+  textarea#userInput::placeholder{color:var(--text-faint);}
+  #sendBtn{
+    background:var(--teal); border:none; color:#08211D; font-weight:600;
+    border-radius:10px; padding:9px 16px; cursor:pointer; font-size:13.5px;
+    flex-shrink:0; transition:.15s;
+  }
+  #sendBtn:disabled{background:var(--line); color:var(--text-faint); cursor:not-allowed;}
+  #sendBtn:hover:not(:disabled){background:#37BFAF;}
+  .composer-hint{font-size:11px; color:var(--text-faint); margin-top:6px; text-align:center;}
+
+  /* ---------- Settings modal ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:50;
+    display:none; align-items:center; justify-content:center;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    width:420px; max-width:92vw; padding:22px; max-height:85vh; overflow-y:auto;
+  }
+  .modal h3{margin:0 0 4px; font-size:16px;}
+  .modal .modal-sub{font-size:12.5px; color:var(--text-faint); margin:0 0 18px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; font-weight:500;}
+  .field input[type="text"], .field input[type="password"], .field select{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:9px 11px; font-size:13px; font-family:var(--mono);
+  }
+  .field input:focus, .field select:focus{outline:none; border-color:var(--teal);}
+  .field-hint{font-size:11px; color:var(--text-faint); margin-top:5px; line-height:1.5;}
+  .field-hint a{color:var(--teal);}
+  .key-row{display:flex; gap:8px;}
+  .key-row input{flex:1;}
+  .toggle-vis{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+    border-radius:8px; padding:0 12px; cursor:pointer; font-size:12px;
+  }
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:6px;}
+  .btn{padding:9px 16px; border-radius:9px; font-size:13px; cursor:pointer; border:1px solid var(--line); background:transparent; color:var(--text-dim);}
+  .btn.primary{background:var(--teal); color:#08211D; border-color:var(--teal); font-weight:600;}
+  .btn:hover{border-color:var(--teal); color:var(--teal);}
+  .btn.primary:hover{background:#37BFAF; color:#08211D;}
+  .divider{height:1px; background:var(--line); margin:18px 0;}
+  .danger-zone label{color:var(--danger);}
+  .badge{
+    display:inline-block; font-family:var(--mono); font-size:10px; padding:2px 7px;
+    border-radius:5px; background:rgba(47,167,154,0.15); color:var(--teal); margin-left:6px;
+  }
+
+  ::-webkit-scrollbar{width:9px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  @media (max-width: 780px){
+    aside{position:fixed; left:0; top:57px; bottom:0; z-index:30; transform:translateX(-100%); transition:.2s;}
+    aside.open{transform:translateX(0);}
+    .bubble{max-width:88%;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <button class="icon-btn" id="menuBtn" style="display:none;">&#9776;</button>
+    <div class="brand-mark">MB</div>
+    <div class="brand-text">
+      <h1>MBR2 Work Assistant</h1>
+      <p>Ask about RC data, ITT, PQSR, PMR — anything you've loaded</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="icon-btn" id="settingsBtn" title="Settings">&#9881;</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar">
+    <div class="section-label">Documents</div>
+    <div class="dropzone" id="dropzone">
+      <span>&#8593;</span>
+      Click or drop files here<br>PDF · Word · Excel · CSV · text
+    </div>
+    <input type="file" id="fileInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md">
+    <div class="doc-list" id="docList">
+      <div class="doc-empty" id="docEmptyMsg">No documents loaded yet. Upload your RC lists, ITT, PQSR, PMR or any report — everything stays in this browser tab only.</div>
+    </div>
+    <div class="stats-bar">
+      <span><b id="docCount">0</b> files</span>
+      <span id="charCount">0 chars</span>
+    </div>
+  </aside>
+
+  <main>
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-inner" id="chatInner">
+        <div class="empty-state" id="emptyState">
+          <h2>Load your documents, then just ask</h2>
+          <p>Upload anything — RC monitoring sheets, the ITT, PQSR ratings, PMR drafts, the AP Plan — and ask questions directly. Everything is read fresh from what you've uploaded, in this tab, and sent only to Gemini to answer your question.</p>
+          <div class="examples">
+            <div class="example-chip" data-q="Summarize the RC data in the uploaded files — how many RCs are there and how are they distributed by age?">"How many RCs are there and how are they distributed by age?"</div>
+            <div class="example-chip" data-q="Which ITT indicators are behind target this year, and by how much?">"Which ITT indicators are behind target this year?"</div>
+            <div class="example-chip" data-q="Give me a one-paragraph status update I could send my supervisor, based on everything uploaded.">"Give me a one-paragraph status update for my supervisor"</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="input-row">
+          <textarea id="userInput" rows="1" placeholder="Ask about anything you've uploaded..."></textarea>
+          <button id="sendBtn">Send</button>
+        </div>
+        <div class="composer-hint">Enter to send · Shift+Enter for a new line · <span id="apiStatus">no API key set</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h3>Settings</h3>
+    <p class="modal-sub">Your key and files stay in this browser only — nothing is stored on any server.</p>
+
+    <div class="field">
+      <label>Gemini API key</label>
+      <div class="key-row">
+        <input type="password" id="apiKeyInput" placeholder="AIza...">
+        <button class="toggle-vis" id="toggleKeyVis">Show</button>
+      </div>
+      <div class="field-hint">Free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> — no card required for the free tier.</div>
+    </div>
+
+    <div class="field">
+      <label>Model</label>
+      <select id="modelSelect">
+        <option value="gemini-3.8-flash">gemini-3.8-flash (recommended)</option>
+        <option value="gemini-2.5-flash">gemini-2.5-flash (older, may be unavailable)</option>
+        <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+        <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (fastest, highest free limit)</option>
+        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <option value="__custom__">Custom model ID...</option>
+      </select>
+      <input type="text" id="customModelInput" placeholder="e.g. gemini-3.0-flash" style="margin-top:8px; display:none;">
+      <div class="field-hint">If Google renames or retires a model, switch it here — the rest of the tool keeps working.</div>
+    </div>
+
+    <div class="field">
+      <label>Remember uploaded documents on this device</label>
+      <select id="persistSelect">
+        <option value="yes">Yes — reload the page and my files are still here</option>
+        <option value="no">No — clear everything when I close the tab</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="closeSettings">Cancel</button>
+      <button class="btn primary" id="saveSettings">Save</button>
+    </div>
+
+    <div class="divider"></div>
+    <div class="field danger-zone">
+      <label>Reset</label>
+      <div class="field-hint" style="margin-bottom:8px;">Remove every uploaded document and clear the chat.</div>
+      <button class="btn" id="clearAllBtn" style="color:var(--danger); border-color:var(--danger);">Clear all documents &amp; chat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------------- State ----------------
+  let documents = [];   // {id, name, ext, sizeLabel, text, status}
+  let chatHistory = [];  // {role: 'user'|'model', content: string}
+  let settings = { apiKey:'', model:'gemini-3.8-flash', customModel:'', persist:'yes' };
+
+  const STORAGE_KEY = 'mbr2_assistant_settings_v1';
+  const DOCS_KEY = 'mbr2_assistant_docs_v1';
+
+  // ---------------- Elements ----------------
+  const el = (id) => document.getElementById(id);
+  const dropzone = el('dropzone');
+  const fileInput = el('fileInput');
+  const docList = el('docList');
+  const docEmptyMsg = el('docEmptyMsg');
+  const docCountEl = el('docCount');
+  const charCountEl = el('charCount');
+  const chatScroll = el('chatScroll');
+  const chatInner = el('chatInner');
+  const emptyState = el('emptyState');
+  const userInput = el('userInput');
+  const sendBtn = el('sendBtn');
+  const apiStatus = el('apiStatus');
+
+  const settingsModal = el('settingsModal');
+  const apiKeyInput = el('apiKeyInput');
+  const toggleKeyVis = el('toggleKeyVis');
+  const modelSelect = el('modelSelect');
+  const customModelInput = el('customModelInput');
+  const persistSelect = el('persistSelect');
+
+  // ---------------- Init ----------------
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){ settings = Object.assign(settings, JSON.parse(raw)); }
+      // Migrate old saved default that Google no longer offers to new users
+      if(settings.model === 'gemini-2.5-flash'){ settings.model = 'gemini-3.8-flash'; }
+    }catch(e){ /* ignore */ }
+    apiKeyInput.value = settings.apiKey || '';
+    if(['gemini-3.8-flash','gemini-2.5-flash','gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'].includes(settings.model)){
+      modelSelect.value = settings.model;
+      customModelInput.style.display = 'none';
+    } else if(settings.model){
+      modelSelect.value = '__custom__';
+      customModelInput.style.display = 'block';
+      customModelInput.value = settings.model;
+    }
+    persistSelect.value = settings.persist || 'yes';
+    updateApiStatus();
+
+    if(settings.persist !== 'no'){
+      try{
+        const rawDocs = localStorage.getItem(DOCS_KEY);
+        if(rawDocs){
+          documents = JSON.parse(rawDocs);
+          documents.forEach(d => d.status = 'ready');
+          renderDocList();
+        }
+      }catch(e){ /* storage may be unavailable or too full */ }
+    }
+  }
+
+  function updateApiStatus(){
+    apiStatus.textContent = settings.apiKey ? ('using ' + effectiveModel()) : 'no API key set — click the gear icon';
+  }
+
+  function effectiveModel(){
+    return modelSelect.value === '__custom__' ? (customModelInput.value.trim() || 'gemini-3.8-flash') : modelSelect.value;
+  }
+
+  function persistDocsIfEnabled(){
+    if(settings.persist === 'no') return;
+    try{
+      localStorage.setItem(DOCS_KEY, JSON.stringify(documents.map(d => ({id:d.id, name:d.name, ext:d.ext, sizeLabel:d.sizeLabel, text:d.text}))));
+    }catch(e){
+      console.warn('Could not save documents locally (likely storage limit). They will still work for this session.', e);
+    }
+  }
+
+  // ---------------- Settings modal ----------------
+  el('settingsBtn').addEventListener('click', () => settingsModal.classList.add('open'));
+  el('closeSettings').addEventListener('click', () => settingsModal.classList.remove('open'));
+  settingsModal.addEventListener('click', (e) => { if(e.target === settingsModal) settingsModal.classList.remove('open'); });
+
+  toggleKeyVis.addEventListener('click', () => {
+    const showing = apiKeyInput.type === 'text';
+    apiKeyInput.type = showing ? 'password' : 'text';
+    toggleKeyVis.textContent = showing ? 'Show' : 'Hide';
+  });
+
+  modelSelect.addEventListener('change', () => {
+    customModelInput.style.display = modelSelect.value === '__custom__' ? 'block' : 'none';
+  });
+
+  el('saveSettings').addEventListener('click', () => {
+    settings.apiKey = apiKeyInput.value.trim();
+    settings.model = effectiveModel();
+    settings.persist = persistSelect.value;
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }catch(e){ /* ignore */ }
+    if(settings.persist === 'no'){ try{ localStorage.removeItem(DOCS_KEY); }catch(e){} }
+    updateApiStatus();
+    settingsModal.classList.remove('open');
+  });
+
+  el('clearAllBtn').addEventListener('click', () => {
+    if(!confirm('Remove every uploaded document and clear the chat? This cannot be undone.')) return;
+    documents = [];
+    chatHistory = [];
+    try{ localStorage.removeItem(DOCS_KEY); }catch(e){}
+    renderDocList();
+    renderChat();
+    settingsModal.classList.remove('open');
+  });
+
+  // ---------------- File upload ----------------
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); fileInput.value = ''; });
+
+  function fmtSize(bytes){
+    if(bytes < 1024) return bytes + ' B';
+    if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/(1024*1024)).toFixed(1) + ' MB';
+  }
+
+  function extOf(name){
+    const m = name.toLowerCase().match(/\.([a-z0-9]+)$/);
+    return m ? m[1] : '';
+  }
+
+  async function handleFiles(fileListRaw){
+    const files = Array.from(fileListRaw);
+    for(const file of files){
+      const ext = extOf(file.name);
+      const doc = { id: 'd' + Date.now() + Math.random().toString(36).slice(2,7), name: file.name, ext, sizeLabel: fmtSize(file.size), text:'', status:'pending' };
+      documents.push(doc);
+      renderDocList();
+      try{
+        doc.text = await extractText(file, ext);
+        doc.status = 'ready';
+      }catch(err){
+        console.error('Failed to read', file.name, err);
+        doc.status = 'failed';
+        doc.text = '';
+      }
+      renderDocList();
+      persistDocsIfEnabled();
+    }
+  }
+
+  async function extractText(file, ext){
+    if(['txt','md','csv'].includes(ext) === false){
+      // handled below per-type; csv/txt/md read as plain text
+    }
+    if(ext === 'txt' || ext === 'md'){
+      return await file.text();
+    }
+    if(ext === 'csv'){
+      const raw = await file.text();
+      try{
+        const wb = XLSX.read(raw, {type:'string'});
+        return sheetsToText(wb);
+      }catch(e){
+        return raw; // fall back to raw csv text
+      }
+    }
+    if(ext === 'xlsx' || ext === 'xls'){
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      return sheetsToText(wb);
+    }
+    if(ext === 'docx'){
+      const buf = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({arrayBuffer: buf});
+      return result.value;
+    }
+    if(ext === 'pdf'){
+      return await extractPdfText(file);
+    }
+    // Unknown type — try reading as text as a last resort
+    try{ return await file.text(); }
+    catch(e){ throw new Error('Unsupported file type: ' + ext); }
+  }
+
+  function sheetsToText(workbook){
+    let out = '';
+    workbook.SheetNames.forEach(sheetName => {
+      const sheet = workbook.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet, {blankrows:false});
+      if(csv.trim()){
+        out += '--- Sheet: ' + sheetName + ' ---\n' + csv.trim() + '\n\n';
+      }
+    });
+    return out;
+  }
+
+  async function extractPdfText(file){
+    if(window['pdfjsLib']){
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let out = '';
+    for(let i = 1; i <= pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(item => item.str);
+      out += strings.join(' ') + '\n\n';
+    }
+    return out;
+  }
+
+  function removeDoc(id){
+    documents = documents.filter(d => d.id !== id);
+    renderDocList();
+    persistDocsIfEnabled();
+  }
+  window.__removeDoc = removeDoc;
+
+  function renderDocList(){
+    docEmptyMsg.style.display = documents.length ? 'none' : 'block';
+    docList.querySelectorAll('.doc-item').forEach(n => n.remove());
+    let totalChars = 0;
+    documents.forEach(doc => {
+      totalChars += (doc.text || '').length;
+      const item = document.createElement('div');
+      item.className = 'doc-item' + (doc.status === 'failed' ? ' failed' : doc.status === 'pending' ? ' pending' : '');
+      const sub = doc.status === 'pending' ? 'Reading...' : doc.status === 'failed' ? 'Could not read this file' : (doc.sizeLabel + ' · ' + (doc.text||'').length.toLocaleString() + ' chars extracted');
+      item.innerHTML =
+        '<div class="doc-ico">' + (doc.ext || 'file').toUpperCase().slice(0,4) + '</div>' +
+        '<div class="doc-meta"><div class="doc-name" title="'+escapeHtml(doc.name)+'">'+escapeHtml(doc.name)+'</div><div class="doc-sub">'+sub+'</div></div>' +
+        '<button class="doc-remove" data-id="'+doc.id+'" title="Remove">&times;</button>';
+      docList.appendChild(item);
+    });
+    docList.querySelectorAll('.doc-remove').forEach(btn => {
+      btn.addEventListener('click', () => removeDoc(btn.getAttribute('data-id')));
+    });
+    docCountEl.textContent = documents.length;
+    charCountEl.textContent = totalChars.toLocaleString() + ' chars';
+  }
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------------- Chat ----------------
+  function renderChat(){
+    chatInner.querySelectorAll('.msg').forEach(n => n.remove());
+    emptyState.style.display = chatHistory.length ? 'none' : 'block';
+    chatHistory.forEach(m => appendBubble(m.role, m.content, false));
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  function appendBubble(role, content, scroll){
+    emptyState.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (role === 'user' ? 'user' : role === 'error' ? 'error' : 'assistant');
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? 'You' : 'AI';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    if(role === 'user' || role === 'error'){
+      bubble.textContent = content;
+    } else {
+      bubble.innerHTML = window.marked ? marked.parse(content) : escapeHtml(content);
+    }
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    chatInner.appendChild(wrap);
+    if(scroll !== false) chatScroll.scrollTop = chatScroll.scrollHeight;
+    return bubble;
+  }
+
+  document.querySelectorAll('.example-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      userInput.value = chip.getAttribute('data-q');
+      userInput.focus();
+      autosize();
+    });
+  });
+
+  userInput.addEventListener('input', autosize);
+  function autosize(){
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+  }
+
+  userInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  sendBtn.addEventListener('click', sendMessage);
+
+  function buildDocumentContext(){
+    const ready = documents.filter(d => d.status === 'ready' && d.text);
+    if(!ready.length) return '';
+    return ready.map(d => '===== FILE: ' + d.name + ' =====\n' + d.text.trim()).join('\n\n');
+  }
+
+  const SYSTEM_PREAMBLE = "You are a work assistant for a World Vision Area Development Programme officer. " +
+    "Answer questions using ONLY the uploaded documents provided below as context. " +
+    "Be precise with numbers, names, dates and totals — quote them exactly as they appear in the source documents. " +
+    "When helpful, say which uploaded file a figure came from. " +
+    "If the answer isn't in the uploaded documents, say so plainly instead of guessing. " +
+    "Answer in the same language the user asks in (English or Khmer).";
+
+  async function sendMessage(){
+    const text = userInput.value.trim();
+    if(!text) return;
+    if(!settings.apiKey){
+      settingsModal.classList.add('open');
+      return;
+    }
+    userInput.value = '';
+    autosize();
+    chatHistory.push({role:'user', content:text});
+    appendBubble('user', text);
+
+    sendBtn.disabled = true;
+    const typingBubble = appendBubble('assistant', '');
+    typingBubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+
+    try{
+      const reply = await callGemini(text);
+      typingBubble.innerHTML = window.marked ? marked.parse(reply) : escapeHtml(reply);
+      chatHistory.push({role:'model', content:reply});
+      persistChatMaybe();
+    }catch(err){
+      console.error(err);
+      typingBubble.parentElement.classList.add('error');
+      typingBubble.textContent = 'Something went wrong: ' + (err.message || err);
+    }finally{
+      sendBtn.disabled = false;
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+  }
+
+  function persistChatMaybe(){
+    // Chat history is intentionally session-only (not persisted) — documents persist, conversation stays fresh.
+  }
+
+  async function callGemini(latestUserText){
+    const model = effectiveModel();
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(settings.apiKey);
+
+    const docContext = buildDocumentContext();
+    const systemText = SYSTEM_PREAMBLE + (docContext ? ('\n\n--- UPLOADED DOCUMENTS ---\n' + docContext) : '\n\n(No documents have been uploaded yet — tell the user to upload files first if their question needs document data.)');
+
+    // Keep the last several turns of conversation to preserve context without an unbounded payload.
+    const recentHistory = chatHistory.slice(-16, -1); // exclude the message we just pushed; it's added explicitly below
+    const contents = recentHistory.map(m => ({ role: m.role, parts: [{text: m.content}] }));
+    contents.push({ role:'user', parts:[{text: latestUserText}] });
+
+    const body = {
+      systemInstruction: { parts: [{ text: systemText }] },
+      contents: contents,
+      generationConfig: { temperature: 0.3 }
+    };
+
+    // Try the chosen model first, then fall back to others if Google is busy or the model is retired.
+    const candidates = [model].concat(['gemini-3.8-flash','gemini-2.5-flash','gemini-2.0-flash','gemini-2.0-flash-lite'].filter(m => m !== model));
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    let res = null, lastMsg = '';
+
+    outer:
+    for(const m of candidates){
+      const u = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(m) + ':generateContent?key=' + encodeURIComponent(settings.apiKey);
+      for(let attempt = 0; attempt < 3; attempt++){
+        let r;
+        try{
+          r = await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        }catch(netErr){
+          lastMsg = 'Network error — check your internet connection.';
+          await sleep(1500 * (attempt + 1));
+          continue;
+        }
+        if(r.ok){ res = r; break outer; }
+
+        let msg = 'API request failed (' + r.status + ')';
+        try{ const j = await r.json(); if(j && j.error && j.error.message) msg = j.error.message; }catch(e){}
+        lastMsg = msg;
+
+        const busy = r.status === 503 || r.status === 500 || r.status === 429 || /high demand|overloaded|try again later/i.test(msg);
+        const retired = r.status === 404 || /no longer available|not found|not supported/i.test(msg);
+
+        if(busy){ await sleep(1500 * Math.pow(2, attempt)); continue; }   // wait 1.5s, 3s, 6s then retry
+        if(retired){ continue outer; }                                     // go to next model
+        throw new Error(msg);                                              // bad key, blocked, etc.
+      }
+    }
+    if(!res){
+      throw new Error(/high demand|overloaded/i.test(lastMsg)
+        ? 'Google\'s AI servers are very busy right now. I tried several times and other models too. Please wait a minute and press send again.'
+        : (lastMsg || 'Could not reach the AI service.'));
+    }
+
+    const data = await res.json();
+    const candidate = data.candidates && data.candidates[0];
+    if(!candidate){
+      const blockReason = data.promptFeedback && data.promptFeedback.blockReason;
+      throw new Error(blockReason ? ('Response was blocked: ' + blockReason) : 'No response was returned.');
+    }
+    const parts = candidate.content && candidate.content.parts;
+    if(!parts || !parts.length) throw new Error('Empty response from the model.');
+    return parts.map(p => p.text || '').join('');
+  }
+
+  // ---------------- Boot ----------------
+  loadSettings();
+  renderDocList();
+  renderChat();
+})();
+</script>
+
+
+<script>
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>

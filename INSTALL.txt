@@ -1,0 +1,41 @@
+MBR2 Work Assistant - Phone Install Package
+===========================================
+
+A phone can only install a web app from a secure web address (https://).
+It cannot install by opening the files directly. So: host this folder once,
+then add it to your home screen.
+
+STEP 1 - Put the folder online (free, ~2 minutes)
+  Option A: Netlify Drop
+    1. Unzip this package on a computer.
+    2. Go to https://app.netlify.com/drop
+    3. Drag the whole unzipped folder onto the page.
+    4. Copy the https://xxxx.netlify.app address it gives you.
+  Option B: GitHub Pages / Cloudflare Pages / any https web host also work.
+  Keep these files together in ONE folder:
+    index.html  manifest.webmanifest  sw.js  icons/
+
+STEP 2 - Install on the phone
+  Android (Chrome):
+    Open the address -> menu (three dots) -> "Install app" or "Add to Home screen".
+  iPhone (Safari only):
+    Open the address -> Share button -> "Add to Home Screen" -> Add.
+
+STEP 3 - First use
+  Open the app -> tap the gear icon -> paste your Gemini API key
+  (free from https://aistudio.google.com/apikey) -> Save.
+  Model: gemini-3.8-flash (default).
+
+NOTES
+  - The app needs internet to talk to Gemini. The screen itself opens instantly.
+  - Your API key and uploaded documents stay on that phone only (browser storage).
+  - Don't share the hosted address publicly if anyone could open it on
+    a phone where your key is saved. Each person enters their own key.
+  - To update the app later, upload the new files to the same host, then
+    close and reopen the app (if it looks old, change CACHE = 'mbr2-assistant-v1'
+    to v2 in sw.js).
+
+"High demand" error
+  This message comes from Google, not your app. It means Google's servers
+  are busy for a moment. This version retries automatically 3 times and
+  then tries other models before showing an error.
